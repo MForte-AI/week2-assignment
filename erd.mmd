@@ -1,0 +1,53 @@
+erDiagram
+    members ||--o{ loans : "borrows"
+    members ||--o{ holds : "places"
+    loans }o--|| books : "checks out"
+    holds }o--|| books : "waits for"
+
+    books {
+        INTEGER book_id PK
+        TEXT title "NOT NULL"
+        TEXT author_1 "NOT NULL"
+        TEXT author_2
+        TEXT author_3
+        TEXT isbn UK "ISBN-13, digits only"
+        TEXT isbn10 UK "leading zeros kept"
+        TEXT publisher
+        INTEGER year_published "whole years"
+        TEXT genre
+        TEXT call_number "shelf location"
+        INTEGER total_copies "NOT NULL, default 1"
+    }
+
+    members {
+        INTEGER member_id PK
+        TEXT first_name "NOT NULL"
+        TEXT last_name "NOT NULL"
+        TEXT email UK "NOT NULL"
+        TEXT phone
+        TEXT address
+        TEXT join_date "NOT NULL, YYYY-MM-DD"
+        TEXT card_expires "NOT NULL, after join_date"
+        TEXT status "active | suspended | expired"
+    }
+
+    loans {
+        INTEGER loan_id PK
+        INTEGER book_id FK "NOT NULL"
+        INTEGER member_id FK "NOT NULL"
+        TEXT checkout_date "NOT NULL, default today"
+        TEXT due_date "NOT NULL, default +14 days"
+        TEXT return_date "blank until returned"
+        REAL late_fee "NOT NULL, default 0.00"
+    }
+
+    holds {
+        INTEGER hold_id PK
+        INTEGER book_id FK "NOT NULL"
+        INTEGER member_id FK "NOT NULL"
+        TEXT request_time "NOT NULL, sets place in line"
+        TEXT status "waiting | ready | picked_up | expired | cancelled"
+        TEXT notified_time "blank until notified"
+        TEXT reminder_time "blank until reminder sent"
+        TEXT pickup_by "notified + 2 days"
+    }
