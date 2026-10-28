@@ -1,0 +1,814 @@
+<meta charset="utf-8">
+<title>Forte Library</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400;700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a sticky masthead with two tabs; the catalog is a search column beside the patron's
+   library card, the owner view stacks summary -> attention -> circulation -> collection. */
+:root {
+  --paper: #f3f5f2;
+  --card: #ffffff;
+  --ink: #17221d;
+  --muted: #5b6962;
+  --line: #d8ded9;
+  --accent: #13664f;
+  --accent-ink: #ffffff;
+  --accent-soft: #e0eee8;
+  --ok: #1d7a4e;
+  --ok-soft: #e1f2e8;
+  --warn: #9a6200;
+  --warn-soft: #fbefd6;
+  --bad: #b2362a;
+  --bad-soft: #f9e3e0;
+  --hold: #5a4fb3;
+  --hold-soft: #ebe8f8;
+  --spine-1: #13664f; --spine-2: #6b4f2a; --spine-3: #2f4f7a; --spine-4: #7a2f3d; --spine-5: #4a5a2a; --spine-6: #3f3a6b;
+  --font-display: "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1512; --card: #17201c; --ink: #e5ece8; --muted: #9babA3; --line: #2a3630;
+    --accent: #5cc2a0; --accent-ink: #0b1411; --accent-soft: #1b2f28;
+    --ok: #52c58c; --ok-soft: #173126; --warn: #e3a944; --warn-soft: #33270f;
+    --bad: #f07a6c; --bad-soft: #3a1c18; --hold: #a99cf5; --hold-soft: #25213f;
+    --spine-1: #2b8a6c; --spine-2: #8f6c3d; --spine-3: #4d73a8; --spine-4: #a24a5a; --spine-5: #6c7f3c; --spine-6: #6a63a3;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1512; --card: #17201c; --ink: #e5ece8; --muted: #9babA3; --line: #2a3630;
+  --accent: #5cc2a0; --accent-ink: #0b1411; --accent-soft: #1b2f28;
+  --ok: #52c58c; --ok-soft: #173126; --warn: #e3a944; --warn-soft: #33270f;
+  --bad: #f07a6c; --bad-soft: #3a1c18; --hold: #a99cf5; --hold-soft: #25213f;
+  --spine-1: #2b8a6c; --spine-2: #8f6c3d; --spine-3: #4d73a8; --spine-4: #a24a5a; --spine-5: #6c7f3c; --spine-6: #6a63a3;
+  color-scheme: dark;
+}
+
+[hidden] { display: none !important; }
+body { background: var(--paper); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--card); }
+.gutter { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1180px; margin: 0 auto; }
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; text-wrap: balance; margin: 0; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+.mono { font-family: var(--font-data); font-size: 0.86em; }
+.muted { color: var(--muted); }
+.eyebrow { font-size: 11.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+
+/* Masthead */
+.masthead { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--card); border-bottom: 1px solid var(--line); }
+.masthead .wrap { display: flex; align-items: center; gap: 12px 24px; flex-wrap: wrap; padding-block: 12px; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand h1 { font-size: 24px; letter-spacing: 0.01em; }
+.brand h1 b { font-weight: 700; }
+.brand .est { font-family: var(--font-data); font-size: 11px; color: var(--muted); }
+.tabs { display: flex; gap: 4px; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
+.tab { border: 0; background: transparent; padding: 6px 16px; border-radius: 999px; cursor: pointer; font-weight: 600; font-size: 14px; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+
+main { padding-block: 24px 48px; }
+.view { display: grid; gap: 24px; }
+
+/* Catalog */
+.catalog-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+@media (max-width: 880px) { .catalog-grid { grid-template-columns: minmax(0, 1fr); } .card-panel { order: -1; } }
+.search-head { display: grid; gap: 10px; }
+.search-head h2 { font-size: 30px; line-height: 1.15; }
+.searchbox { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px 6px 4px 14px; }
+.searchbox:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.searchbox svg { flex: none; color: var(--muted); }
+.searchbox input { flex: 1; min-width: 0; border: 0; background: transparent; padding: 10px 0; font-size: 16px; outline: none; }
+.searchbox button { border: 0; background: transparent; color: var(--muted); padding: 6px 10px; cursor: pointer; border-radius: 6px; }
+.searchbox button:hover { background: var(--paper); }
+.result-meta { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+
+.results { display: grid; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); overflow: hidden; }
+.book { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--line); align-items: start; }
+.book:first-child { border-top: 0; }
+.spine { width: 44px; height: 64px; border-radius: 3px 5px 5px 3px; color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 6px 0; font-family: var(--font-data); font-size: 10.5px; letter-spacing: 0.04em; box-shadow: inset 3px 0 0 rgba(0,0,0,0.18); }
+.spine i { font-style: normal; opacity: 0.75; font-size: 9px; }
+.book h3 { font-size: 17px; line-height: 1.3; }
+.book .by { color: var(--muted); font-size: 14px; }
+.book .facts { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.book .side { display: grid; justify-items: end; gap: 8px; text-align: right; max-width: 220px; }
+@media (max-width: 560px) {
+  .book { grid-template-columns: 36px minmax(0, 1fr); }
+  .spine { width: 36px; height: 54px; }
+  .book .side { grid-column: 2; justify-items: start; text-align: left; max-width: none; }
+}
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.pill.ok { background: var(--ok-soft); color: var(--ok); }
+.pill.out { background: var(--warn-soft); color: var(--warn); }
+.pill.late { background: var(--bad-soft); color: var(--bad); }
+.pill.held { background: var(--hold-soft); color: var(--hold); }
+.pill.mine { background: var(--accent-soft); color: var(--accent); }
+.note { font-size: 12.5px; color: var(--muted); }
+.btn { border: 1px solid var(--accent); background: var(--accent); color: var(--accent-ink); padding: 7px 14px; border-radius: 8px; font-weight: 600; font-size: 13.5px; cursor: pointer; }
+.btn:hover { filter: brightness(1.08); }
+.btn.ghost { background: transparent; color: var(--accent); }
+.btn.ghost:hover { background: var(--accent-soft); filter: none; }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; filter: none; }
+.more { padding: 12px; text-align: center; border-top: 1px solid var(--line); }
+.empty { padding: 32px 20px; text-align: center; color: var(--muted); }
+
+/* Library card panel */
+.card-panel { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 80px); display: grid; gap: 14px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+@media (max-width: 880px) { .card-panel { position: static; } }
+.card-panel label { display: grid; gap: 6px; }
+.card-panel select { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.libcard { border: 1px dashed var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 4px; background: var(--paper); }
+.libcard .name { font-family: var(--font-display); font-size: 19px; }
+.libcard .row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.slips { display: grid; gap: 8px; }
+.slip { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); font-size: 13.5px; }
+.slip .t { font-weight: 600; min-width: 0; }
+.slip .stamp { font-family: var(--font-data); font-size: 11.5px; padding: 2px 6px; border: 1.5px solid currentColor; border-radius: 4px; transform: rotate(-2deg); align-self: start; white-space: nowrap; }
+.slip .sub { grid-column: 1 / -1; color: var(--muted); font-size: 12.5px; }
+.slip button { justify-self: start; grid-column: 1 / -1; margin-top: 4px; }
+.storage-note { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 8px; font-size: 14px; z-index: 20; max-width: calc(100vw - 32px); }
+
+/* Owner */
+.owner-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; }
+.owner-head h2 { font-size: 30px; line-height: 1.15; }
+.kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 1000px) { .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 520px) { .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 4px; align-content: start; }
+.kpi .v { font-family: var(--font-display); font-size: 30px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.kpi .s { font-size: 12.5px; color: var(--muted); }
+.kpi .s b { font-weight: 600; }
+.kpi.alert .s b { color: var(--bad); }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; display: grid; gap: 14px; min-width: 0; align-content: start; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.panel h3 { font-size: 19px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+@media (max-width: 880px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.tablewrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 0 10px 8px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.r, th.r { text-align: right; }
+td.num { white-space: nowrap; }
+.stack { display: flex; height: 26px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.stack div { min-width: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.chart { width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font-family: var(--font-body); font-size: 11.5px; }
+.chart .lbl { fill: var(--ink); font-size: 12.5px; }
+.tip { position: fixed; z-index: 30; pointer-events: none; background: var(--ink); color: var(--paper); font-size: 12.5px; padding: 7px 10px; border-radius: 6px; max-width: 260px; line-height: 1.4; white-space: pre-line; }
+.queue { display: grid; gap: 12px; }
+.queue-book { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; gap: 8px; }
+.queue-book header { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.queue-book ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; counter-reset: q; }
+.queue-book li { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 13.5px; }
+.queue-book li .pos { font-family: var(--font-data); font-size: 12px; color: var(--muted); text-align: right; }
+.bars { display: grid; gap: 8px; }
+.bar-row { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 44px; gap: 10px; align-items: center; font-size: 13px; }
+.bar-row .track { height: 12px; background: var(--paper); border-radius: 3px; overflow: hidden; }
+.bar-row .fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.loading { padding: 60px 0; text-align: center; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .book, .kpi, .panel { animation: rise 0.25s ease-out both; } }
+@keyframes rise { from { transform: translateY(4px); } to { transform: none; } }
+</style>
+
+<header class="masthead gutter">
+  <div class="wrap">
+    <div class="brand">
+      <h1><b>Forte</b> Library</h1>
+      <span class="est" id="asof">Nashville, TN</span>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button class="tab" role="tab" id="tab-catalog" aria-selected="true" data-view="catalog">Catalog</button>
+      <button class="tab" role="tab" id="tab-owner" aria-selected="false" data-view="owner">Owner</button>
+    </nav>
+  </div>
+</header>
+
+<main class="gutter">
+  <div class="wrap">
+    <div id="loading" class="loading">Opening the card catalog…</div>
+
+    <section id="view-catalog" class="view" role="tabpanel" aria-labelledby="tab-catalog" hidden>
+      <div class="catalog-grid">
+        <div class="view">
+          <div class="search-head">
+            <h2>Find a book</h2>
+            <div class="searchbox">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+              <input id="q" type="search" autocomplete="off" placeholder="Title, author or ISBN" aria-label="Search by title, author or ISBN">
+              <button id="clear" type="button" hidden>Clear</button>
+            </div>
+            <div class="result-meta"><span id="result-count"></span><span>Search 10,000 titles by title, author or ISBN-10/13</span></div>
+          </div>
+          <div id="results" class="results" aria-live="polite"></div>
+        </div>
+
+        <aside class="card-panel" aria-label="Your library card">
+          <label for="member">
+            <span class="eyebrow">Viewing as (demo)</span>
+            <select id="member"></select>
+          </label>
+          <div id="libcard" class="libcard"></div>
+          <div>
+            <div class="eyebrow">Checked out</div>
+            <div id="my-loans" class="slips"></div>
+          </div>
+          <div>
+            <div class="eyebrow">Waitlists</div>
+            <div id="my-holds" class="slips"></div>
+          </div>
+          <div id="storage-note" class="storage-note">Connecting to the shared waitlist…</div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="view-owner" class="view" role="tabpanel" aria-labelledby="tab-owner" hidden>
+      <div class="owner-head">
+        <div>
+          <div class="eyebrow" id="owner-date"></div>
+          <h2>How the library is doing</h2>
+        </div>
+        <span class="note" id="owner-source"></span>
+      </div>
+      <div class="kpis" id="kpis"></div>
+
+      <div class="two">
+        <section class="panel" aria-labelledby="h-overdue">
+          <div class="panel-head"><h3 id="h-overdue">Overdue and due soon</h3><span class="note">Open loans, latest due last</span></div>
+          <div class="tablewrap"><table id="tbl-due"></table></div>
+        </section>
+        <section class="panel" aria-labelledby="h-shelf">
+          <div class="panel-head"><h3 id="h-shelf">Pickup shelf</h3><span class="note">Held copies wait 2 days</span></div>
+          <div class="tablewrap"><table id="tbl-shelf"></table></div>
+        </section>
+      </div>
+
+      <section class="panel" aria-labelledby="h-status">
+        <div class="panel-head"><h3 id="h-status">Status of books in circulation</h3><span class="note" id="status-note"></span></div>
+        <div class="stack" id="status-stack" role="img"></div>
+        <div class="legend" id="status-legend"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="h-timeline">
+        <div class="panel-head"><h3 id="h-timeline">Loan timeline</h3>
+          <div class="legend">
+            <span><i style="background: var(--muted)"></i>Returned</span>
+            <span><i style="background: var(--accent)"></i>Out, on time</span>
+            <span><i style="background: var(--bad)"></i>Overdue</span>
+            <span><i style="background: transparent; border: 1.5px dashed var(--muted)"></i>Time left until due</span>
+          </div>
+        </div>
+        <div class="chart" id="timeline"></div>
+      </section>
+
+      <div class="two">
+        <section class="panel" aria-labelledby="h-queues">
+          <div class="panel-head"><h3 id="h-queues">Waitlists</h3><span class="note" id="queue-note"></span></div>
+          <div class="queue" id="queues"></div>
+        </section>
+        <section class="panel" aria-labelledby="h-members">
+          <div class="panel-head"><h3 id="h-members">Members</h3><span class="note">Activity per library card</span></div>
+          <div class="tablewrap"><table id="tbl-members"></table></div>
+        </section>
+      </div>
+
+      <div class="two">
+        <section class="panel" aria-labelledby="h-decades">
+          <div class="panel-head"><h3 id="h-decades">The collection by publication date</h3><span class="note">Titles per period</span></div>
+          <div class="chart" id="decades"></div>
+        </section>
+        <section class="panel" aria-labelledby="h-authors">
+          <div class="panel-head"><h3 id="h-authors">Most-stocked authors</h3><span class="note">Titles listing them as first author</span></div>
+          <div class="bars" id="authors"></div>
+        </section>
+      </div>
+    </section>
+  </div>
+</main>
+<div id="tip" class="tip" hidden></div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
+  function h(tag, attrs, ...kids) {
+    const el = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null || v === false) continue;
+      if (k === "class") el.className = v;
+      else if (k === "style") el.setAttribute("style", v);
+      else if (k.startsWith("on")) el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? "" : v);
+    }
+    for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid instanceof Node ? kid : String(kid));
+    return el;
+  }
+  const SVGNS = "http://www.w3.org/2000/svg";
+  function s(tag, attrs, ...kids) {
+    const el = document.createElementNS(SVGNS, tag);
+    for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, v);
+    for (const kid of kids.flat()) if (kid != null) el.append(kid instanceof Node ? kid : String(kid));
+    return el;
+  }
+  const pad = (n) => String(n).padStart(2, "0");
+  const localDate = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const localStamp = (d = new Date()) => `${localDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const dayNum = (iso) => { const [y, m, d] = iso.slice(0, 10).split("-").map(Number); return Date.UTC(y, m - 1, d) / 86400000; };
+  const fromDayNum = (n) => new Date(n * 86400000).toISOString().slice(0, 10);
+  const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const fmtDate = (iso) => { if (!iso) return ""; const [y, m, d] = iso.slice(0, 10).split("-").map(Number); return `${MONTHS[m - 1]} ${d}`; };
+  const fmtDateLong = (iso) => { const [y, m, d] = iso.slice(0, 10).split("-").map(Number); return `${MONTHS[m - 1]} ${d}, ${y}`; };
+  const money = (n) => `$${n.toFixed(2)}`;
+  const plural = (n, one, many) => `${n.toLocaleString()} ${n === 1 ? one : (many || one + "s")}`;
+  const shortTitle = (t) => t.replace(/\s*\([^)]*#[^)]*\)\s*$/, "");
+  const yearLabel = (y) => (y == null ? "Year unknown" : y < 0 ? `${-y} BCE` : String(y));
+  const TODAY = localDate();
+  const T = dayNum(TODAY);
+
+  let toastTimer;
+  function toast(msg) {
+    const el = $("toast"); el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => (el.hidden = true), 3200);
+  }
+
+  // ---------- state ----------
+  const S = {
+    books: [], byId: new Map(), members: [], memberById: new Map(), loans: [], seedHolds: [],
+    web: new Map(),          // shared waitlist changes: id -> doc body
+    db: null, canWrite: true, storage: "connecting",
+    memberId: 207, query: "", shown: 20, view: "catalog", asOf: null,
+  };
+
+  function zip(cols, rows) { return rows.map((r) => Object.fromEntries(cols.map((c, i) => [c, r[i]]))); }
+
+  // Merge the exported holds with changes made on this page, then apply the
+  // waitlist rule: a free copy goes to the earliest waiting member.
+  function currentHolds() {
+    const holds = S.seedHolds.map((hd) => {
+      const o = S.web.get("seed-" + hd.id);
+      return o && o.status ? { ...hd, status: o.status, web: true } : { ...hd };
+    });
+    for (const [id, d] of S.web) {
+      if (!id.startsWith("web-")) continue;
+      if (!S.byId.has(d.book) || !S.memberById.has(d.member)) continue;
+      holds.push({ id, book: d.book, member: d.member, requested: d.requested, status: d.status, notified: null, reminded: null, pickupBy: null, web: true });
+    }
+    holds.sort((a, b) => (a.requested < b.requested ? -1 : a.requested > b.requested ? 1 : String(a.id).localeCompare(String(b.id))));
+    const byBook = new Map();
+    for (const hd of holds) { if (!byBook.has(hd.book)) byBook.set(hd.book, []); byBook.get(hd.book).push(hd); }
+    for (const [bookId, list] of byBook) {
+      let free = S.byId.get(bookId).copies - openLoans(bookId).length - list.filter((x) => x.status === "ready").length;
+      for (const hd of list) {
+        if (free <= 0) break;
+        if (hd.status === "waiting") { hd.status = "ready"; hd.notified = TODAY; hd.pickupBy = fromDayNum(T + 2); hd.promoted = true; free--; }
+      }
+    }
+    return holds;
+  }
+  const openLoans = (bookId) => S.loans.filter((l) => l.book === bookId && !l.returned);
+
+  function bookState(book, holds) {
+    const out = openLoans(book.id);
+    const mine = holds.filter((x) => x.book === book.id);
+    const ready = mine.filter((x) => x.status === "ready");
+    const waiting = mine.filter((x) => x.status === "waiting");
+    const available = Math.max(book.copies - out.length - ready.length, 0);
+    const nextDue = out.map((l) => l.due).sort()[0] || null;
+    let status = "available";
+    if (available === 0) status = ready.length > 0 && out.length < book.copies ? "held" : "out";
+    return { out, ready, waiting, available, nextDue, status };
+  }
+
+  // ---------- catalog ----------
+  function search() {
+    const q = S.query.trim().toLowerCase();
+    if (!q) return S.books;
+    const digits = q.replace(/[^0-9x]/g, "");
+    const isIsbn = digits.length >= 9 && /^[0-9x\-\s]+$/.test(q);
+    if (isIsbn) return S.books.filter((b) => (b.isbn && b.isbn.startsWith(digits)) || (b.isbn10 && b.isbn10.toLowerCase().startsWith(digits)));
+    const words = q.split(/\s+/).filter(Boolean);
+    return S.books.filter((b) => words.every((w) => b.hay.includes(w)));
+  }
+
+  function spineColor(b) { return `var(--spine-${(b.id % 6) + 1})`; }
+
+  function memberLabel(m) { return `${m.first} ${m.last}`; }
+
+  function actionFor(book, st, holds, member) {
+    const myLoan = st.out.find((l) => l.member === member.id);
+    const myHold = holds.find((x) => x.book === book.id && x.member === member.id && (x.status === "waiting" || x.status === "ready"));
+    if (myLoan) return h("span", { class: "pill mine" }, `You have it · due ${fmtDate(myLoan.due)}`);
+    if (myHold && myHold.status === "ready") return h("span", { class: "pill mine" }, `Ready for you · pick up by ${fmtDate(myHold.pickupBy)}`);
+    if (myHold) {
+      const place = st.waiting.indexOf(myHold) + 1;
+      return h("div", { style: "display:grid;gap:6px;justify-items:inherit" },
+        h("span", { class: "pill mine" }, `You're #${place} in line`),
+        h("button", { class: "btn ghost", type: "button", onclick: () => leave(myHold) }, "Leave waitlist"));
+    }
+    if (st.available > 0) return h("span", { class: "note" }, `On the shelf at `, h("span", { class: "mono" }, book.call || "—"));
+    if (member.status !== "active") return h("button", { class: "btn", type: "button", disabled: true, title: "Card is " + member.status }, "Join waitlist");
+    return h("button", { class: "btn", type: "button", disabled: !S.canWrite && S.storage === "readonly", onclick: () => join(book) }, "Join waitlist");
+  }
+
+  function statusPill(book, st) {
+    if (st.status === "available") return h("span", { class: "pill ok" }, book.copies > 1 ? `Available · ${st.available} of ${book.copies}` : "Available");
+    if (st.status === "held") return h("span", { class: "pill held" }, "On hold for another member");
+    const late = st.nextDue && dayNum(st.nextDue) < T;
+    return h("span", { class: "pill " + (late ? "late" : "out") }, late ? `Overdue since ${fmtDate(st.nextDue)}` : `Checked out · back ${fmtDate(st.nextDue)}`);
+  }
+
+  function renderResults() {
+    const holds = currentHolds();
+    const member = S.memberById.get(S.memberId);
+    const found = search();
+    const box = $("results"); box.replaceChildren();
+    $("clear").hidden = !S.query;
+    $("result-count").textContent = S.query.trim()
+      ? `${plural(found.length, "match", "matches")} for “${S.query.trim()}”`
+      : "Popular titles";
+    if (!found.length) {
+      box.append(h("div", { class: "empty" }, "No titles match that search. Try part of a title, an author's last name, or an ISBN without dashes."));
+      return;
+    }
+    for (const b of found.slice(0, S.shown)) {
+      const st = bookState(b, holds);
+      const facts = [
+        h("span", null, yearLabel(b.year)),
+        b.isbn ? h("span", { class: "mono" }, "ISBN " + b.isbn) : null,
+        st.waiting.length ? h("span", null, `${plural(st.waiting.length, "person", "people")} waiting`) : null,
+        b.copies > 1 ? h("span", null, `${b.copies} copies`) : null,
+      ];
+      box.append(h("article", { class: "book" },
+        h("div", { class: "spine", style: `background:${spineColor(b)}`, "aria-hidden": "true" }, h("span", null, b.call || "—"), h("i", null, "FL")),
+        h("div", { style: "min-width:0" },
+          h("h3", null, shortTitle(b.title)),
+          h("div", { class: "by" }, b.author),
+          h("div", { class: "facts" }, facts)),
+        h("div", { class: "side" }, statusPill(b, st), actionFor(b, st, holds, member))));
+    }
+    if (found.length > S.shown) {
+      box.append(h("div", { class: "more" }, h("button", { class: "btn ghost", type: "button", onclick: () => { S.shown += 20; renderResults(); } }, `Show more (${(found.length - S.shown).toLocaleString()} left)`)));
+    }
+  }
+
+  function renderCard() {
+    const holds = currentHolds();
+    const m = S.memberById.get(S.memberId);
+    const card = $("libcard"); card.replaceChildren(
+      h("div", { class: "name" }, memberLabel(m)),
+      h("div", { class: "row" }, h("span", { class: "muted" }, "Card no."), h("span", { class: "mono" }, String(m.id))),
+      h("div", { class: "row" }, h("span", { class: "muted" }, "Status"),
+        h("span", { class: "pill " + (m.status === "active" ? "ok" : "late") }, m.status[0].toUpperCase() + m.status.slice(1))),
+      h("div", { class: "row" }, h("span", { class: "muted" }, "Card expires"), h("span", { class: "num" }, fmtDateLong(m.expires))));
+
+    const loans = S.loans.filter((l) => l.member === m.id && !l.returned).sort((a, b) => (a.due < b.due ? -1 : 1));
+    $("my-loans").replaceChildren(...(loans.length ? loans.map((l) => {
+      const late = dayNum(l.due) < T;
+      const b = S.byId.get(l.book);
+      return h("div", { class: "slip" },
+        h("span", { class: "t" }, shortTitle(b.title)),
+        h("span", { class: "stamp", style: `color:var(--${late ? "bad" : "accent"})` }, "DUE " + fmtDate(l.due).toUpperCase()),
+        h("span", { class: "sub" }, late ? `${plural(T - dayNum(l.due), "day")} overdue` : `Checked out ${fmtDate(l.checkout)}`));
+    }) : [h("div", { class: "note" }, "Nothing checked out.")]));
+
+    const mine = holds.filter((x) => x.member === m.id && (x.status === "waiting" || x.status === "ready"));
+    $("my-holds").replaceChildren(...(mine.length ? mine.map((hd) => {
+      const b = S.byId.get(hd.book);
+      const st = bookState(b, holds);
+      const ready = hd.status === "ready";
+      return h("div", { class: "slip" },
+        h("span", { class: "t" }, shortTitle(b.title)),
+        h("span", { class: "stamp", style: `color:var(--${ready ? "ok" : "hold"})` }, ready ? "READY" : `#${st.waiting.indexOf(hd) + 1} IN LINE`),
+        h("span", { class: "sub" }, ready ? `Pick up by ${fmtDateLong(hd.pickupBy)} at the front desk` : st.nextDue ? `Next copy due back ${fmtDate(st.nextDue)}` : `Joined ${fmtDate(hd.requested)}`),
+        h("button", { class: "btn ghost", type: "button", onclick: () => leave(hd) }, ready ? "Release hold" : "Leave waitlist"));
+    }) : [h("div", { class: "note" }, "Not in line for anything.")]));
+  }
+
+  function renderStorageNote() {
+    const el = $("storage-note");
+    el.textContent = {
+      connecting: "Connecting to the shared waitlist…",
+      shared: "Waitlist changes are saved and show up on the Owner tab.",
+      local: "Waitlist changes on this view are not saved. Open the app signed in to save them.",
+      readonly: "You can browse the catalog, but your access to this app doesn't allow waitlist changes.",
+    }[S.storage];
+  }
+
+  // ---------- waitlist actions ----------
+  async function write(id, body) {
+    if (!S.db) { S.web.set(id, body); return true; }
+    try {
+      await S.db.collection("holds").doc(id).set(body);
+      return true;
+    } catch (e) {
+      if (e && (e.code === "invalid_argument" || e.code === "not_granted")) { S.canWrite = false; S.storage = "readonly"; renderStorageNote(); }
+      toast(e && e.code === "quota_exceeded" ? "The waitlist store is full. Ask the owner to clear old entries." : "That change couldn't be saved. Please try again.");
+      return false;
+    }
+  }
+
+  async function join(book) {
+    const holds = currentHolds();
+    const st = bookState(book, holds);
+    const m = S.memberById.get(S.memberId);
+    // Same checks as the holds_before_insert trigger in library.db.
+    if (m.status !== "active") return toast("This card is suspended. Please see the front desk.");
+    if (st.out.some((l) => l.member === m.id)) return toast("You already have this book checked out.");
+    if (holds.some((x) => x.book === book.id && x.member === m.id && (x.status === "waiting" || x.status === "ready"))) return toast("You're already in line for this book.");
+    if (st.available > 0) return toast("A copy is on the shelf. Check it out at the front desk.");
+    const rand = (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(16).slice(2)).replace(/-/g, "").slice(0, 12);
+    const ok = await write("web-" + rand, { book: book.id, member: m.id, requested: localStamp(), status: "waiting", source: "catalog" });
+    if (ok) { toast(`You're #${st.waiting.length + 1} in line for ${shortTitle(book.title)}.`); renderAll(); }
+  }
+
+  async function leave(hd) {
+    const id = String(hd.id).startsWith("web-") ? hd.id : "seed-" + hd.id;
+    const prev = S.web.get(id) || {};
+    const body = String(hd.id).startsWith("web-")
+      ? { ...prev, status: "cancelled", changed: localStamp() }
+      : { status: "cancelled", changed: localStamp(), member: hd.member, book: hd.book };
+    const ok = await write(id, body);
+    if (ok) { toast(`Left the waitlist for ${shortTitle(S.byId.get(hd.book).title)}.`); renderAll(); }
+  }
+
+  // ---------- owner ----------
+  function renderOwner() {
+    const holds = currentHolds();
+    const open = S.loans.filter((l) => !l.returned);
+    const overdue = open.filter((l) => dayNum(l.due) < T);
+    const waiting = holds.filter((x) => x.status === "waiting");
+    const ready = holds.filter((x) => x.status === "ready");
+    const remindersDue = ready.filter((x) => !x.reminded && x.notified && dayNum(x.notified) + 1 <= T);
+    const copies = S.books.reduce((n, b) => n + b.copies, 0);
+    const fees = S.loans.reduce((n, l) => n + (l.fee || 0), 0);
+    const active = S.members.filter((m) => m.status === "active").length;
+    const webCount = [...S.web.keys()].filter((k) => k.startsWith("web-")).length;
+
+    $("owner-date").textContent = `Today · ${fmtDateLong(TODAY)}`;
+    $("owner-source").textContent = `From library.db, exported ${fmtDateLong(S.asOf)}${webCount ? ` · plus ${plural(webCount, "online waitlist request")}` : ""}`;
+
+    const kpi = (label, value, sub, alert) => h("div", { class: "kpi" + (alert ? " alert" : "") }, h("div", { class: "eyebrow" }, label), h("div", { class: "v" }, value), h("div", { class: "s" }, sub));
+    $("kpis").replaceChildren(
+      kpi("Titles", S.books.length.toLocaleString(), `${copies.toLocaleString()} copies on hand`),
+      kpi("On loan", String(open.length), overdue.length ? h("span", null, h("b", null, `${overdue.length} overdue`), ` · ${open.length - overdue.length} on time`) : "None overdue", overdue.length > 0),
+      kpi("Waiting in line", String(waiting.length), `for ${plural(new Set(waiting.map((x) => x.book)).size, "title")}`),
+      kpi("Pickup shelf", String(ready.length), remindersDue.length ? h("span", null, h("b", null, `${remindersDue.length} reminder due`)) : "No reminders due", remindersDue.length > 0),
+      kpi("Members", String(S.members.length), `${active} active · ${S.members.length - active} suspended`),
+      kpi("Late fees", money(fees), `from ${plural(S.loans.filter((l) => l.fee > 0).length, "late return")}`));
+
+    // Overdue and due soon
+    const dueRows = open.slice().sort((a, b) => (a.due < b.due ? -1 : 1));
+    $("tbl-due").replaceChildren(
+      h("thead", null, h("tr", null, h("th", null, "Book"), h("th", null, "Member"), h("th", null, "Due"), h("th", { class: "r" }, "Status"))),
+      h("tbody", null, dueRows.map((l) => {
+        const d = dayNum(l.due) - T;
+        const m = S.memberById.get(l.member);
+        return h("tr", null,
+          h("td", null, shortTitle(S.byId.get(l.book).title)),
+          h("td", null, memberLabel(m)),
+          h("td", { class: "num" }, fmtDate(l.due)),
+          h("td", { class: "r" }, d < 0 ? h("span", { class: "pill late" }, `${-d}d late`) : d <= 3 ? h("span", { class: "pill out" }, d === 0 ? "Due today" : `In ${d}d`) : h("span", { class: "pill ok" }, `In ${d}d`)));
+      })));
+
+    // Pickup shelf
+    $("tbl-shelf").replaceChildren(
+      h("thead", null, h("tr", null, h("th", null, "Book"), h("th", null, "For"), h("th", null, "Pick up by"), h("th", { class: "r" }, "Notice"))),
+      h("tbody", null, ready.length ? ready.map((x) => {
+        const m = S.memberById.get(x.member);
+        const due = !x.reminded && x.notified && dayNum(x.notified) + 1 <= T;
+        const missed = x.pickupBy && dayNum(x.pickupBy) < T;
+        return h("tr", null,
+          h("td", null, shortTitle(S.byId.get(x.book).title)),
+          h("td", null, memberLabel(m), h("div", { class: "note mono" }, m.email)),
+          h("td", { class: "num" }, fmtDate(x.pickupBy)),
+          h("td", { class: "r" }, missed ? h("span", { class: "pill late" }, "Missed") : due ? h("span", { class: "pill out" }, "Send reminder") : h("span", { class: "pill ok" }, x.promoted ? "Email today" : "Emailed")));
+      }) : h("tr", null, h("td", { colspan: 4, class: "muted" }, "Nothing waiting for pickup."))));
+
+    // Status of books in circulation
+    const active_ = S.books.filter((b) => S.loans.some((l) => l.book === b.id) || holds.some((x) => x.book === b.id));
+    const counts = { available: 0, out: 0, held: 0 };
+    for (const b of active_) counts[bookState(b, holds).status]++;
+    const parts = [["available", "Available", "var(--ok)"], ["out", "Checked out", "var(--warn)"], ["held", "On hold for a member", "var(--hold)"]];
+    const total = active_.length || 1;
+    $("status-stack").setAttribute("aria-label", parts.map(([k, l]) => `${l}: ${counts[k]}`).join(", "));
+    $("status-stack").replaceChildren(...parts.filter(([k]) => counts[k] > 0).map(([k, l, c]) => h("div", { style: `flex:${counts[k]};background:${c}`, title: `${l}: ${counts[k]}` })));
+    $("status-legend").replaceChildren(...parts.map(([k, l, c]) => h("span", null, h("i", { style: `background:${c}` }), `${l} `, h("b", { class: "num" }, String(counts[k])), h("span", { class: "muted" }, ` (${Math.round((counts[k] / total) * 100)}%)`))));
+    $("status-note").textContent = `${plural(active_.length, "title")} with loan or waitlist activity; the other ${(S.books.length - active_.length).toLocaleString()} are on the shelf`;
+
+    drawTimeline();
+
+    // Waitlists
+    const queueBooks = [...new Set(holds.filter((x) => x.status === "waiting" || x.status === "ready").map((x) => x.book))];
+    $("queue-note").textContent = webCount ? `${plural(webCount, "request")} made online` : "In request order";
+    $("queues").replaceChildren(...(queueBooks.length ? queueBooks.map((bid) => {
+      const b = S.byId.get(bid); const st = bookState(b, holds);
+      const line = [...st.ready, ...st.waiting];
+      return h("div", { class: "queue-book" },
+        h("header", null, h("strong", null, shortTitle(b.title)), statusPill(b, st)),
+        h("ol", null, line.map((x, i) => h("li", null,
+          h("span", { class: "pos" }, x.status === "ready" ? "—" : `#${st.waiting.indexOf(x) + 1}`),
+          h("span", null, memberLabel(S.memberById.get(x.member)), h("span", { class: "note" }, ` · ${x.status === "ready" ? "on the pickup shelf" : "asked " + fmtDate(x.requested)}${x.web ? " · online" : ""}`)),
+          h("span", { class: "pill " + (x.status === "ready" ? "held" : "out") }, x.status === "ready" ? "Ready" : "Waiting")))));
+    }) : [h("div", { class: "note" }, "No one is waiting for a book.")]));
+
+    // Members
+    $("tbl-members").replaceChildren(
+      h("thead", null, h("tr", null, h("th", null, "Member"), h("th", null, "Card"), h("th", { class: "r" }, "Out"), h("th", { class: "r" }, "Late"), h("th", { class: "r" }, "Holds"), h("th", { class: "r" }, "Fees"))),
+      h("tbody", null, S.members.map((m) => {
+        const ml = S.loans.filter((l) => l.member === m.id);
+        const mo = ml.filter((l) => !l.returned);
+        const late = mo.filter((l) => dayNum(l.due) < T).length;
+        const mh = holds.filter((x) => x.member === m.id && (x.status === "waiting" || x.status === "ready")).length;
+        const fee = ml.reduce((n, l) => n + (l.fee || 0), 0);
+        return h("tr", null,
+          h("td", null, memberLabel(m), h("div", { class: "note mono" }, `#${m.id}`)),
+          h("td", null, h("span", { class: "pill " + (m.status === "active" ? "ok" : "late") }, m.status)),
+          h("td", { class: "r num" }, String(mo.length)),
+          h("td", { class: "r num", style: late ? "color:var(--bad);font-weight:600" : null }, String(late)),
+          h("td", { class: "r num" }, String(mh)),
+          h("td", { class: "r num" }, fee ? money(fee) : "—"));
+      })));
+
+    drawDecades();
+    drawAuthors();
+  }
+
+  // Tooltip shared by the charts
+  function bindTip(el, text) {
+    const tip = $("tip");
+    el.addEventListener("pointermove", (e) => {
+      tip.textContent = text; tip.hidden = false;
+      const r = tip.getBoundingClientRect();
+      let x = e.clientX + 14, y = e.clientY + 14;
+      if (x + r.width > innerWidth - 8) x = e.clientX - r.width - 14;
+      if (y + r.height > innerHeight - 8) y = e.clientY - r.height - 14;
+      tip.style.left = Math.max(8, x) + "px"; tip.style.top = Math.max(8, y) + "px";
+    });
+    el.addEventListener("pointerleave", () => (tip.hidden = true));
+  }
+
+  function drawTimeline() {
+    const box = $("timeline");
+    const W = Math.max(box.clientWidth, 300);
+    const narrow = W < 560;
+    const loans = S.loans.slice().sort((a, b) => (a.checkout < b.checkout ? -1 : a.checkout > b.checkout ? 1 : a.id - b.id));
+    const start = Math.min(...loans.map((l) => dayNum(l.checkout))) - 1;
+    const end = Math.max(T, ...loans.map((l) => dayNum(l.due))) + 2;
+    const labelW = narrow ? 0 : Math.min(260, W * 0.32);
+    const rowH = narrow ? 44 : 30;
+    const top = 26, H = top + loans.length * rowH + 8;
+    const x = (d) => labelW + ((d - start) / (end - start)) * (W - labelW - 8);
+    const svg = s("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": "Each loan from checkout to return or today, against its due date" });
+    // week ticks
+    for (let d = start; d <= end; d++) {
+      const date = fromDayNum(d);
+      if (new Date(date + "T00:00:00Z").getUTCDay() !== 1) continue;
+      svg.append(s("line", { x1: x(d), x2: x(d), y1: top - 6, y2: H - 4, stroke: "var(--line)", "stroke-width": 1 }));
+      svg.append(s("text", { x: x(d), y: 12, "text-anchor": "middle" }, fmtDate(date)));
+    }
+    loans.forEach((l, i) => {
+      const y = top + i * rowH + (narrow ? 18 : 6);
+      const b = S.byId.get(l.book), m = S.memberById.get(l.member);
+      const label = `${shortTitle(b.title)} · ${m.first} ${m.last[0]}.`;
+      if (narrow) svg.append(s("text", { class: "lbl", x: 0, y: y - 5 }, label.length > 46 ? label.slice(0, 45) + "…" : label));
+      else svg.append(s("text", { class: "lbl", x: 0, y: y + 12 }, label.length > 36 ? label.slice(0, 35) + "…" : label));
+      const c0 = dayNum(l.checkout), due = dayNum(l.due);
+      const endD = l.returned ? dayNum(l.returned) : T;
+      const late = !l.returned && due < T;
+      const g = s("g", null);
+      // time left until due (dashed outline)
+      if (!l.returned && due > endD) g.append(s("rect", { x: x(endD), y, width: Math.max(x(due) - x(endD), 1), height: 16, rx: 3, fill: "none", stroke: "var(--muted)", "stroke-dasharray": "3 3" }));
+      const fill = l.returned ? "var(--muted)" : late ? "var(--bad)" : "var(--accent)";
+      g.append(s("rect", { x: x(c0), y, width: Math.max(x(endD) - x(c0), 3), height: 16, rx: 3, fill, opacity: l.returned ? 0.55 : 1 }));
+      if (late) g.append(s("line", { x1: x(due), x2: x(due), y1: y - 3, y2: y + 19, stroke: "var(--card)", "stroke-width": 2 }));
+      g.append(s("rect", { x: labelW, y: y - 6, width: W - labelW, height: rowH, fill: "transparent" }));
+      bindTip(g, `${shortTitle(b.title)}\n${m.first} ${m.last}\nOut ${fmtDate(l.checkout)} · due ${fmtDate(l.due)}${l.returned ? ` · returned ${fmtDate(l.returned)}` : late ? ` · ${T - due} days overdue` : ""}${l.fee ? ` · fee ${money(l.fee)}` : ""}`);
+      svg.append(g);
+    });
+    // today marker
+    svg.append(s("line", { x1: x(T), x2: x(T), y1: top - 8, y2: H - 2, stroke: "var(--ink)", "stroke-width": 1.5 }));
+    svg.append(s("text", { x: Math.min(x(T) + 4, W - 34), y: top - 10, class: "lbl", "font-weight": "600" }, "Today"));
+    box.replaceChildren(svg);
+  }
+
+  function drawDecades() {
+    const bins = [["Before 1800", (y) => y < 1800], ["1800s", (y) => y < 1900], ["1900–49", (y) => y < 1950], ["1950s", (y) => y < 1960], ["1960s", (y) => y < 1970], ["1970s", (y) => y < 1980], ["1980s", (y) => y < 1990], ["1990s", (y) => y < 2000], ["2000s", (y) => y < 2010], ["2010s", (y) => y < 2020]];
+    const counts = bins.map(() => 0);
+    let unknown = 0;
+    for (const b of S.books) {
+      if (b.year == null) { unknown++; continue; }
+      counts[bins.findIndex(([, f]) => f(b.year))]++;
+    }
+    const max = Math.max(...counts);
+    $("decades").replaceChildren(
+      h("div", { class: "bars" }, bins.map(([label], i) => h("div", { class: "bar-row" },
+        h("span", { class: "name" }, label),
+        h("span", { class: "track" }, h("span", { class: "fill", style: `display:block;width:${(counts[i] / max) * 100}%` })),
+        h("span", { class: "num", style: "text-align:right" }, counts[i].toLocaleString())))),
+      h("div", { class: "note", style: "margin-top:10px" }, `${unknown} titles have no publication year.`));
+  }
+
+  function drawAuthors() {
+    const c = new Map();
+    for (const b of S.books) { const a = b.author.split(", ")[0]; c.set(a, (c.get(a) || 0) + 1); }
+    const top = [...c].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 10);
+    const max = top[0][1];
+    $("authors").replaceChildren(...top.map(([name, n]) => h("div", { class: "bar-row" },
+      h("span", { class: "name", title: name }, name),
+      h("span", { class: "track" }, h("span", { class: "fill", style: `display:block;width:${(n / max) * 100}%` })),
+      h("span", { class: "num", style: "text-align:right" }, String(n)))));
+  }
+
+  // ---------- views ----------
+  function renderAll() {
+    if (S.view === "catalog") { renderResults(); renderCard(); }
+    else renderOwner();
+  }
+
+  function setView(v) {
+    S.view = v;
+    for (const t of document.querySelectorAll(".tab")) t.setAttribute("aria-selected", String(t.dataset.view === v));
+    $("view-catalog").hidden = v !== "catalog";
+    $("view-owner").hidden = v !== "owner";
+    try { if (location.hash !== "#" + v) history.replaceState(null, "", "#" + v); } catch (e) {}
+    renderAll();
+  }
+
+  function wire() {
+    for (const t of document.querySelectorAll(".tab")) t.addEventListener("click", () => setView(t.dataset.view));
+    let deb;
+    $("q").addEventListener("input", (e) => { clearTimeout(deb); deb = setTimeout(() => { S.query = e.target.value; S.shown = 20; renderResults(); }, 120); });
+    $("clear").addEventListener("click", () => { $("q").value = ""; S.query = ""; S.shown = 20; renderResults(); $("q").focus(); });
+    const sel = $("member");
+    sel.replaceChildren(...S.members.map((m) => h("option", { value: m.id }, `${memberLabel(m)} · #${m.id}${m.status !== "active" ? " (" + m.status + ")" : ""}`)));
+    try { const saved = Number(localStorage.getItem("forte-member")); if (S.memberById.has(saved)) S.memberId = saved; } catch (e) {}
+    sel.value = String(S.memberId);
+    sel.addEventListener("change", () => {
+      S.memberId = Number(sel.value);
+      try { localStorage.setItem("forte-member", sel.value); } catch (e) {}
+      renderAll();
+    });
+    let rt;
+    addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (S.view === "owner") drawTimeline(); }, 150); });
+  }
+
+  async function connectStore() {
+    const claude = window.claude;
+    const db = claude && claude.use ? await claude.use("db").catch(() => null) : null;
+    if (!db) { S.storage = "local"; renderStorageNote(); return; }
+    S.db = db;
+    try {
+      const u = await claude.use("user").catch(() => null);
+      if (u) { const can = await u.can("data.write"); if (can === false) { S.canWrite = false; S.storage = "readonly"; } }
+    } catch (e) {}
+    if (S.storage !== "readonly") S.storage = "shared";
+    renderStorageNote();
+    db.collection("holds").onSnapshot((snap) => {
+      S.web = new Map(snap.docs.map((d) => [d.id, d.data()]));
+      renderAll();
+    }, (err) => {
+      S.storage = err && err.code === "revoked" ? "readonly" : "local";
+      S.db = null; renderStorageNote();
+    });
+  }
+
+  async function boot() {
+    const res = await fetch("library-data.json");
+    if (!res.ok) throw new Error("data " + res.status);
+    const d = await res.json();
+    S.asOf = d.asOf;
+    S.books = zip(d.bookColumns, d.books).map((b) => ({ ...b, hay: `${b.title} ${b.author}`.toLowerCase() }));
+    S.byId = new Map(S.books.map((b) => [b.id, b]));
+    S.members = zip(d.memberColumns, d.members);
+    S.memberById = new Map(S.members.map((m) => [m.id, m]));
+    S.loans = zip(d.loanColumns, d.loans);
+    S.seedHolds = zip(d.holdColumns, d.holds);
+    $("asof").textContent = `${S.books.length.toLocaleString()} titles · est. 2026`;
+    $("loading").hidden = true;
+    wire();
+    renderStorageNote();
+    const start = location.hash === "#owner" ? "owner" : "catalog";
+    setView(start);
+    connectStore();
+  }
+
+  boot().catch(() => { $("loading").textContent = "The catalog couldn't load. Refresh the page to try again."; });
+})();
+</script>

@@ -96,11 +96,27 @@ The diagram source is in [erd.mmd](erd.mmd). It was drawn from the live schema o
 
 Missed pickups are expired by running [daily_holds_check.sql](daily_holds_check.sql) once a day.
 
+## Dashboard
+
+Forte Library has a two-tab web app built from this data:
+https://claude.ai/artifact/8WaY49KGqmMam5hM3mhLvW
+
+- **Catalog** (for patrons): search by title, author or ISBN, see whether a copy is available or when one is expected back, and join or leave a waitlist.
+- **Owner** (for the library owner): headline numbers, overdue loans, the pickup shelf, a loan timeline, waitlists, member activity, and what the collection is made of.
+
+The app reads a JSON export of `library.db`. To refresh it after the database changes, run `python3 dashboard/export_data.py`. To view it locally, run `python3 -m http.server 8765 --directory dashboard` and open http://localhost:8765.
+
 ## Files
 
 | File | Purpose |
 |---|---|
+| [books.csv](books.csv) | The original book list (Goodreads, 10,000 titles) |
+| [library.db](library.db) | The SQLite database |
 | [schema.sql](schema.sql) | Tables, checks, views and triggers |
 | [build_library.py](build_library.py) | Cleans `books.csv` and builds `library.db` |
 | [seed_test_data.sql](seed_test_data.sql) | Test members, loans and holds for books 1–10 |
 | [daily_holds_check.sql](daily_holds_check.sql) | Daily expiry of missed pickups and reminder list |
+| [erd.png](erd.png) / [erd.mmd](erd.mmd) | The entity relationship diagram and its Mermaid source |
+| [dashboard/index.html](dashboard/index.html) | The Forte Library app |
+| [dashboard/library-data.json](dashboard/library-data.json) | Data exported from `library.db` for the app |
+| [dashboard/export_data.py](dashboard/export_data.py) | Exports `library.db` to that JSON file |
